@@ -1,5 +1,7 @@
 import { version as uuidVersion } from "uuid";
 import orchestrator from "tests/orchestrator.js";
+import user from "models/user.js";
+import password from "models/password.js";
 
 beforeAll(async () => {
   await orchestrator.waitForAllServices();
@@ -27,15 +29,29 @@ describe("POST /api/v1/users", () => {
         id: responseBody.id,
         username: "jainaldo1",
         email: "Contato@gmail.com",
-        password: "123",
+        password: responseBody.password,
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
       });
+      expect(response.status).toBe(201);
       expect(uuidVersion(responseBody.id)).toBe(4);
       expect(Date.parse(responseBody.created_at)).not.toBeNaN();
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
-      expect(response.status).toBe(201);
+
+      const userInDatabase = await user.findOneByUsername("jainaldo1");
+      const correctPasswordMatch = await password.compare(
+        "123",
+        userInDatabase.password,
+      );
+      const incorrectPasswordMatch = await password.compare(
+        "SenhaErrada",
+        userInDatabase.password,
+      );
+
+      expect(correctPasswordMatch).toBe(true);
+      expect(incorrectPasswordMatch).toBe(false);
     });
+
     test("With duplicated 'email'", async () => {
       const response1 = await fetch("http://localhost:3000/api/v1/users", {
         method: "POST",
@@ -69,7 +85,7 @@ describe("POST /api/v1/users", () => {
       expect(response2Body).toEqual({
         name: "ValidationError",
         message: "O email informado já está sendo utilizado.",
-        action: "Utilize outro email para o cadastro",
+        action: "Utilize outro email para realizar esta operação.",
         status_code: 400,
       });
     });
@@ -106,7 +122,7 @@ describe("POST /api/v1/users", () => {
       expect(response2Body).toEqual({
         name: "ValidationError",
         message: "O username informado já está sendo utilizado.",
-        action: "Utilize outro username para o cadastro",
+        action: "Utilize outro username para realizar esta operação.",
         status_code: 400,
       });
     });
